@@ -16,7 +16,7 @@ pymupdf>=1.24.0
 requests>=2.31.0
 tavily-python>=0.3.0
 
-# Vector search / embeddings (FAISS in-memory + OpenAI embeddings, TF-IDF fallback)
+# Vector search / embeddings (FAISS in-memory + Hugging Face Inference API, TF-IDF fallback)
 numpy>=1.22.0
 scikit-learn>=1.2.0
 faiss-cpu>=1.8.0

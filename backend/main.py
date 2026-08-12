@@ -114,12 +114,17 @@ async def health_check():
         "mode": "realtime",
         "job_sources": ["Tavily"],
         "search_backend": "Tavily + FAISS embeddings",
-        "llm_provider": "OpenRouter",
+        "llm_providers": {
+            "profiler": "Google Gemini",
+            "analyst": "Google Gemini",
+            "gap_analyzer": "Groq",
+            "strategist": "Groq",
+        },
         "llm_models": {
-            "profiler": os.getenv("PROFILER_MODEL", "x-ai/grok-4-fast"),
-            "analyst": os.getenv("ANALYST_MODEL", "x-ai/grok-4-fast"),
-            "gap_analyzer": os.getenv("GAP_MODEL", "anthropic/claude-sonnet-4-6"),
-            "strategist": os.getenv("STRATEGIST_MODEL", "anthropic/claude-sonnet-4-6"),
+            "profiler": os.getenv("PROFILER_MODEL", "gemini-2.5-flash"),
+            "analyst": os.getenv("ANALYST_MODEL", "gemini-2.5-flash"),
+            "gap_analyzer": os.getenv("GAP_MODEL", "llama-3.3-70b-versatile"),
+            "strategist": os.getenv("STRATEGIST_MODEL", "llama-3.3-70b-versatile"),
         },
         "tavily_configured": bool(os.getenv("TAVILY_API_KEY")),
     }

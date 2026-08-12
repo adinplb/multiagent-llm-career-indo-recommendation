@@ -3,7 +3,7 @@ Vector Store Tool — Real-time Job Search dengan FAISS Semantic Embeddings.
 
 Arsitektur:
 1. Tavily search → ambil lowongan real-time dari LinkedIn/JobStreet/Glints
-2. OpenAI text-embedding-3-small → embed job snippets (via OpenRouter)
+2. Hugging Face Inference API (Qwen3-Embedding-0.6B) → embed job snippets
 3. FAISS IndexFlatIP → semantic similarity search in-memory
 4. Fallback: TF-IDF cosine similarity jika FAISS/embedding gagal
 
@@ -13,14 +13,15 @@ Public signatures identik dengan versi lama (backward compatible).
 import os
 import logging
 import numpy as np
+import requests
 from functools import lru_cache
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-OPENAI_API_KEY  = os.getenv("OPENAI_API_KEY", "")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+HF_API_TOKEN = os.getenv("HF_API_TOKEN", "")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-0.6B")
+HF_API_URL = f"https://api-inference.huggingface.co/models/{EMBEDDING_MODEL}"
 
 
 # ---------------------------------------------------------------------------
@@ -59,34 +60,38 @@ def get_or_build_job_collection(
 # Embedding layer
 # ---------------------------------------------------------------------------
 
-def _embed_with_openai(texts: list[str]) -> np.ndarray:
+def _hf_embed_request(texts: list[str]) -> np.ndarray:
     """
-    Embed teks menggunakan OpenAI text-embedding-3-small via OpenRouter.
-    Menggunakan OPENAI_API_KEY + OPENAI_BASE_URL yang sudah ada di .env.
+    Panggil Hugging Face Inference API untuk embed teks.
+    wait_for_model=True: tunggu model selesai cold-start alih-alih langsung 503.
     Raises Exception jika gagal → caller fall back ke TF-IDF.
     """
-    from langchain_openai import OpenAIEmbeddings
-
-    embedder = OpenAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        api_key=OPENAI_API_KEY,
-        base_url=OPENAI_BASE_URL,
-        chunk_size=100,
+    if not HF_API_TOKEN:
+        raise EnvironmentError(
+            "HF_API_TOKEN tidak ditemukan. Set env var di .env "
+            "(daftar gratis di https://huggingface.co/settings/tokens)."
+        )
+    response = requests.post(
+        HF_API_URL,
+        headers={"Authorization": f"Bearer {HF_API_TOKEN}"},
+        json={"inputs": texts, "options": {"wait_for_model": True}},
+        timeout=30,
     )
-    vectors = embedder.embed_documents(texts)
-    return np.array(vectors, dtype=np.float32)
+    response.raise_for_status()
+    return np.array(response.json(), dtype=np.float32)
+
+
+def _embed_with_openai(texts: list[str]) -> np.ndarray:
+    """
+    Embed teks via Hugging Face Inference API.
+    Nama fungsi dipertahankan agar caller (build_faiss_index) tidak perlu diubah.
+    """
+    return _hf_embed_request(texts)
 
 
 def _embed_query_openai(query: str) -> np.ndarray:
-    """Embed single query string."""
-    from langchain_openai import OpenAIEmbeddings
-    embedder = OpenAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        api_key=OPENAI_API_KEY,
-        base_url=OPENAI_BASE_URL,
-    )
-    vec = embedder.embed_query(query)
-    return np.array([vec], dtype=np.float32)
+    """Embed single query string via Hugging Face Inference API."""
+    return _hf_embed_request([query])
 
 
 def _tfidf_scores(docs: list[str], query: str) -> np.ndarray:

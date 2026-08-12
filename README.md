@@ -65,13 +65,13 @@ Sistem rekomendasi karier berbasis AI untuk pasar kerja Indonesia. Menggunakan a
 
 ### Penjelasan Setiap Agent
 
-| Agent | File | LLM (default via OpenRouter) | Berjalan | Input | Output |
-|---|---|---|---|---|---|
-| **Coordinator** | `backend/agents/coordinator.py` | — (no LLM) | Sequential | cv_text, target_role | validasi + routing |
-| **Profiler** | `backend/agents/profiler.py` | `PROFILER_MODEL` = x-ai/grok-4-fast | **PARALEL** | cv_text, github_url, additional_context, attachments_text | `user_profile` (JSON) |
-| **Market Analyst** | `backend/agents/analyst.py` | `ANALYST_MODEL` = qwen/qwen3.5-9b | **PARALEL** | target_role | `market_data` (JSON) via Tavily |
-| **Gap Analyzer** | `backend/agents/gap_analyzer.py` | `GAP_MODEL` = anthropic/claude-sonnet-4-6 | Sequential (Fan-In) | user_profile + market_data | `skill_gaps` (JSON) |
-| **Strategist** | `backend/agents/strategist.py` | `STRATEGIST_MODEL` = anthropic/claude-opus-4.5 | Sequential | semua output + additional_context | `roadmap` (Markdown) |
+| Agent | File | LLM (default) | Provider | Berjalan | Input | Output |
+|---|---|---|---|---|---|---|
+| **Coordinator** | `backend/agents/coordinator.py` | — (no LLM) | — | Sequential | cv_text, target_role | validasi + routing |
+| **Profiler** | `backend/agents/profiler.py` | `PROFILER_MODEL` = gemini-2.5-flash | Google Gemini | **PARALEL** | cv_text, github_url, additional_context, attachments_text | `user_profile` (JSON) |
+| **Market Analyst** | `backend/agents/analyst.py` | `ANALYST_MODEL` = gemini-2.5-flash | Google Gemini | **PARALEL** | target_role | `market_data` (JSON) via Tavily |
+| **Gap Analyzer** | `backend/agents/gap_analyzer.py` | `GAP_MODEL` = llama-3.3-70b-versatile | Groq | Sequential (Fan-In) | user_profile + market_data | `skill_gaps` (JSON) |
+| **Strategist** | `backend/agents/strategist.py` | `STRATEGIST_MODEL` = llama-3.3-70b-versatile | Groq | Sequential | semua output + additional_context | `roadmap` (Markdown) |
 
 ### Mengapa Paralel?
 
@@ -179,13 +179,14 @@ Field `messages`, `error`, dan `status` menggunakan **reducer** agar kedua agent
 |---|---|---|
 | **Orchestrasi Agent** | LangGraph 0.2+ | Fan-Out/Fan-In paralel dengan Send API |
 | **LLM Framework** | LangChain 0.2+ | Abstraksi model, prompt management |
-| **LLM Provider** | OpenRouter | Satu endpoint untuk semua model: Claude, Grok, GPT-4o, Gemini, dll. |
-| **Model Paralel (Profiler)** | x-ai/grok-4-fast | Ekstraksi CV — cepat & murah |
-| **Model Paralel (Analyst)** | qwen/qwen3.5-9b | Agregasi data pasar — hemat & efisien |
-| **Model Sequential (Gap)** | anthropic/claude-sonnet-4-6 | Reasoning skill gap — kualitas tinggi |
-| **Model Sequential (Strategist)** | anthropic/claude-opus-4.5 | Roadmap 6 bulan — kualitas terbaik |
+| **LLM Provider (Profiler, Analyst)** | Google Gemini | Endpoint OpenAI-compatible, free tier langsung dari Google |
+| **LLM Provider (Gap Analyzer, Strategist)** | Groq | Endpoint OpenAI-compatible, inference sangat cepat, free tier |
+| **Model Paralel (Profiler)** | gemini-2.5-flash | Ekstraksi CV |
+| **Model Paralel (Analyst)** | gemini-2.5-flash | Agregasi data pasar |
+| **Model Sequential (Gap)** | llama-3.3-70b-versatile | Reasoning skill gap |
+| **Model Sequential (Strategist)** | llama-3.3-70b-versatile | Roadmap 6 bulan |
 | **Job Search Real-Time** | Tavily Search API | LinkedIn, JobStreet, Glints — 1.000 req/bulan gratis |
-| **Semantic Search** | FAISS IndexFlatIP + OpenAI Embeddings | `text-embedding-3-small` via OpenRouter; fallback TF-IDF |
+| **Semantic Search** | FAISS IndexFlatIP + Hugging Face Inference API | `Qwen/Qwen3-Embedding-0.6B`; fallback TF-IDF |
 | **Bootcamp Info** | Tavily Search API | Dicoding, Bangkit, Hacktiv8, Binar, RevoU — real-time |
 | **Salary Data** | Tavily + gajimu.com | Range gaji IDR dari pencarian real-time + fallback table |
 | **PDF Parser** | PyMuPDF (fitz) | Ekstrak teks dari CV PDF + file lampiran |
@@ -202,7 +203,7 @@ ada di root project, sejajar dengan `README.md` dan `.gitignore`.
 
 ```
 multiagent-llm-career-indo-recommendation/
-├── .env                          # Kredensial asli (gitignored) — Tavily, OpenRouter, Supabase, VITE_BACKEND_URL
+├── .env                          # Kredensial asli (gitignored) — Tavily, Gemini, Groq, Supabase, VITE_BACKEND_URL
 ├── .env.example                   # Template, aman di-commit
 ├── docker-compose.yml              # 2 service: backend, frontend
 ├── .gitignore
@@ -215,7 +216,7 @@ multiagent-llm-career-indo-recommendation/
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   ├── agents/
-│   │   ├── llm_factory.py           # Pemilihan LLM terpusat (OpenRouter)
+│   │   ├── llm_factory.py           # Pemilihan LLM terpusat (Google Gemini + Groq)
 │   │   ├── coordinator.py           # Validasi + Fan-Out router
 │   │   ├── profiler.py              # Analisis CV + konteks tambahan → user_profile
 │   │   ├── analyst.py               # Riset pasar via Tavily → market_data
@@ -224,7 +225,7 @@ multiagent-llm-career-indo-recommendation/
 │   └── tools/
 │       ├── cv_parser.py             # PDF → teks, GitHub scraper
 │       ├── tavily_search.py         # Semua Tavily calls terpusat
-│       ├── vector_store.py          # FAISS + OpenAI embeddings (fallback TF-IDF)
+│       ├── vector_store.py          # FAISS + HF Inference API embeddings (fallback TF-IDF)
 │       ├── job_scraper.py           # Delegasi ke tavily_search (gaji, tren, perusahaan)
 │       └── supabase_client.py       # Riwayat analisis (fitur History), opsional
 │
@@ -309,10 +310,16 @@ cp .env.example .env
 Edit `.env` (di root project) dan isi minimal:
 ```env
 TAVILY_API_KEY=tvly-xxxxxxxxxxxxxxxx
-OPENAI_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxx
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
+GOOGLE_API_KEY=xxxxxxxxxxxxxxxx       # https://aistudio.google.com/apikey — free tier
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxx     # https://console.groq.com/keys — free tier
+HF_API_TOKEN=hf_xxxxxxxxxxxxxxxx      # https://huggingface.co/settings/tokens — free, tipe "Read"
 ```
-Model per-agent (`PROFILER_MODEL`, `ANALYST_MODEL`, `GAP_MODEL`, `STRATEGIST_MODEL`) sudah ada default di file template — ubah sesuai kebutuhan. Lihat daftar model di https://openrouter.ai/models.
+Model per-agent (`PROFILER_MODEL`, `ANALYST_MODEL` — Gemini; `GAP_MODEL`, `STRATEGIST_MODEL` — Groq)
+sudah ada default di file template — ubah sesuai kebutuhan. Lihat daftar model Gemini di
+https://ai.google.dev/gemini-api/docs/models dan Groq di https://console.groq.com/docs/models.
+
+Embedding (`EMBEDDING_MODEL`, default `Qwen/Qwen3-Embedding-0.6B`) dipanggil via **Hugging Face
+Inference API** — butuh `HF_API_TOKEN`, tidak ada model yang di-download/jalan di container.
 
 Semua konfigurasi (backend + frontend) kini berasal dari **satu file** `.env` di root — tidak ada lagi `.env` terpisah di `backend/` atau `frontend/app/`. `VITE_BACKEND_URL` di `.env` dipakai frontend saat build (lihat `frontend/app/src/lib/api.js`), sesuai dengan port yang di-expose backend di `docker-compose.yml`.
 
@@ -340,12 +347,17 @@ curl http://localhost:8000/api/health
   "mode": "realtime",
   "job_sources": ["Tavily"],
   "search_backend": "Tavily + FAISS embeddings",
-  "llm_provider": "OpenRouter",
+  "llm_providers": {
+    "profiler": "Google Gemini",
+    "analyst": "Google Gemini",
+    "gap_analyzer": "Groq",
+    "strategist": "Groq"
+  },
   "llm_models": {
-    "profiler": "x-ai/grok-4-fast",
-    "analyst": "qwen/qwen3.5-9b",
-    "gap_analyzer": "anthropic/claude-sonnet-4-6",
-    "strategist": "anthropic/claude-opus-4.5"
+    "profiler": "gemini-2.5-flash",
+    "analyst": "gemini-2.5-flash",
+    "gap_analyzer": "llama-3.3-70b-versatile",
+    "strategist": "llama-3.3-70b-versatile"
   },
   "tavily_configured": true
 }
@@ -465,7 +477,7 @@ curl http://localhost:5173
 | Langkah | Perintah | Terminal |
 |---|---|---|
 | Clone & masuk folder | `git clone ... && cd ...` | Mana saja |
-| Salin `.env` & isi API key | `copy .env.example .env` lalu edit `TAVILY_API_KEY` + `OPENAI_API_KEY` | Mana saja |
+| Salin `.env` & isi API key | `copy .env.example .env` lalu edit `TAVILY_API_KEY` + `GOOGLE_API_KEY` + `GROQ_API_KEY` | Mana saja |
 | **Backend** — venv | `cd backend && python -m venv venv && venv\Scripts\activate` | Terminal 1 |
 | Install packages | `pip install -r requirements.txt` | Terminal 1 |
 | Jalankan backend | `uvicorn main:app --reload --port 8000` | Terminal 1 |
@@ -674,35 +686,26 @@ Semua parameter AI dikontrol dari file `.env` — **tidak perlu mengubah kode**.
 # Budget per analisis: ~4 credits (jobs + salary + trends + bootcamp)
 TAVILY_API_KEY=tvly-...
 
-# ─── OpenRouter — satu provider untuk semua agent ───────────
-# Daftar di https://openrouter.ai
-# Satu key ini mengakses semua model: Claude, Grok, GPT-4o, dll.
-# Juga digunakan untuk FAISS embeddings (text-embedding-3-small)
-OPENAI_API_KEY=sk-or-v1-...
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
+# ─── Google Gemini — Profiler + Analyst (paralel) ───────────
+# Daftar gratis di https://aistudio.google.com/apikey
+GOOGLE_API_KEY=...
+GOOGLE_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 
-# ─── Model per agent (via OpenRouter) ───────────────────────
-# Lihat semua model: https://openrouter.ai/models
+PROFILER_MODEL=gemini-2.5-flash
+ANALYST_MODEL=gemini-2.5-flash
 
-# Profiler Agent — berjalan PARALEL, prioritas kecepatan & biaya
-# Default: x-ai/grok-4-fast
-# Alternatif: anthropic/claude-haiku-4-5, google/gemini-flash-1.5
-PROFILER_MODEL=x-ai/grok-4-fast
+# ─── Groq — Gap Analyzer + Strategist (sequential) ──────────
+# Daftar gratis di https://console.groq.com/keys
+# Lihat model tersedia di https://console.groq.com/docs/models
+GROQ_API_KEY=gsk_...
+GROQ_BASE_URL=https://api.groq.com/openai/v1
 
-# Market Analyst Agent — berjalan PARALEL, prioritas kecepatan & biaya
-ANALYST_MODEL=qwen/qwen3.5-9b
-
-# Gap Analyzer Agent — sequential Fan-In, prioritas reasoning
-# Alternatif: openai/gpt-4o, google/gemini-pro-1.5
-GAP_MODEL=anthropic/claude-sonnet-4-6
-
-# Strategist Agent — sequential, output roadmap terpanjang (kualitas terbaik)
-# Alternatif: anthropic/claude-sonnet-4-6, openai/o3
-STRATEGIST_MODEL=anthropic/claude-opus-4.5
+GAP_MODEL=llama-3.3-70b-versatile
+STRATEGIST_MODEL=llama-3.3-70b-versatile
 
 # ─── Token & Temperature ────────────────────────────────────
 
-# Jumlah token output maksimum (lebih tinggi = output lebih panjang, lebih mahal)
+# Jumlah token output maksimum (lebih tinggi = output lebih panjang)
 # Default: 1200. Range rekomendasi: 800-2000
 AI_MAX_TOKENS=1200
 
@@ -715,10 +718,10 @@ AI_TEMPERATURE=0.35
 # Default: 0.3. Range rekomendasi: 0.3-0.6
 AI_RECOMMENDATION_TEMPERATURE=0.3
 
-# ─── Embedding Model ─────────────────────────────────────────
-# Digunakan untuk FAISS semantic search (via OpenRouter)
-# text-embedding-3-small = $0.02/MTok — sangat murah
-EMBEDDING_MODEL=text-embedding-3-small
+# ─── Embedding Model — Hugging Face Inference API ────────────
+# Daftar token gratis (tipe "Read" sudah cukup): https://huggingface.co/settings/tokens
+HF_API_TOKEN=hf_...
+EMBEDDING_MODEL=Qwen/Qwen3-Embedding-0.6B
 ```
 
 ### Panduan Tuning
@@ -728,11 +731,12 @@ EMBEDDING_MODEL=text-embedding-3-small
 | Output JSON sering tidak valid | Turunkan `AI_TEMPERATURE` ke `0.05-0.1` |
 | Roadmap terasa terlalu kaku/template | Naikkan `AI_RECOMMENDATION_TEMPERATURE` ke `0.5-0.7` |
 | Analisis terlalu singkat | Naikkan `AI_MAX_TOKENS` ke `2000-4096` |
-| API terlalu lambat / mahal | Ganti `GAP_MODEL` dan `STRATEGIST_MODEL` ke model lebih murah (misal: `x-ai/grok-4-fast`) |
-| Skill yang diekstrak terlalu sedikit | Naikkan `PROFILER_MODEL` ke `anthropic/claude-sonnet-4-6` atau `openai/gpt-4o` |
+| Profiler/Analyst timeout atau error 429/504 | Cek kuota free tier Gemini (rate limit per menit) di aistudio.google.com; tunggu sebentar atau upgrade |
+| Gap Analyzer/Strategist timeout atau error 429/504 | Cek kuota free tier Groq di console.groq.com/settings/limits |
+| Skill yang diekstrak terlalu sedikit | Coba model Gemini yang lebih besar (mis. `gemini-2.5-pro` jika tersedia di akun Anda) |
 | Persentase kecocokan selalu 50% | Cek apakah `keterampilan_diminati` di market_data terisi |
 | Gaji tidak realistis | Cek fallback table di `backend/tools/tavily_search.py` fungsi `search_salary_tavily()` |
-| Lowongan tidak relevan secara semantik | Cek OPENAI_API_KEY valid — FAISS embeddings menggunakan key ini |
+| Lowongan tidak relevan secara semantik | Cek `HF_API_TOKEN` valid; cek `docker logs` backend untuk error HF Inference API (401/404/cold-start timeout) — akan fallback diam-diam ke TF-IDF jika gagal |
 | Konteks tambahan tidak tercermin di roadmap | Pastikan `additional_context` dikirim di form; cek log Strategist |
 | Tavily habis kuota | Cek penggunaan di dashboard tavily.com; kuota gratis reset bulanan |
 
