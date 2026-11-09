@@ -6,13 +6,11 @@ on:
       - dev
       - rc
       - prod
-      - master
   pull_request:
     branches:
       - dev
       - rc
       - prod
-      - master
   workflow_dispatch:
 
 permissions:

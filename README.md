@@ -282,10 +282,10 @@ Jika hook memperbaiki format file, tinjau perubahan lalu stage ulang sebelum com
 
 ### Continuous Integration
 
-GitHub Actions menjalankan pemeriksaan saat ada push atau pull request ke `master`,
-serta dapat dijalankan manual dari tab **Actions**. Workflow `.github/workflows/ci.yml`
-menjalankan seluruh hook pre-commit dan build production frontend (`npm ci` lalu
-`npm run build`) tanpa memerlukan API key aplikasi.
+GitHub Actions menjalankan pemeriksaan saat ada push atau pull request ke `dev`, `rc`,
+dan `prod`, serta dapat dijalankan manual dari tab **Actions**. Workflow
+`.github/workflows/ci.yml` menjalankan seluruh hook pre-commit dan build production
+frontend (`npm ci` lalu `npm run build`) tanpa memerlukan API key aplikasi.
 
 Deployment dilakukan melalui integrasi Git native Vercel dan Netlify; GitHub Actions
 menangani validasi CI, sementara masing-masing provider membangun dan menerbitkan branch
@@ -299,31 +299,52 @@ Alur rilis menggunakan tiga branch permanen:
 |---|---|---|
 | `dev` | Integrasi perubahan fitur; perubahan masuk melalui pull request | CI |
 | `rc` | Kandidat rilis untuk pengujian sebelum produksi | Netlify |
-| `prod` | Rilis yang sudah disetujui | Vercel |
+| `prod` | Branch default dan rilis yang sudah disetujui | Vercel |
+| `master` | Branch lama; bukan lagi default | Tidak dipakai |
 
 Alur promosi: branch fitur → PR ke `dev` → PR `dev` ke `rc` → uji deployment
 Netlify → PR `rc` ke `prod` → deployment Vercel. Setelah rilis, sinkronkan
 perubahan `prod` kembali ke `dev`. Workflow CI berjalan pada push dan pull request
-ke ketiga branch. Terapkan aturan branch protection/ruleset di GitHub agar merge
-memerlukan PR dan workflow CI yang sukses.
+ke ketiga branch utama. Terapkan aturan branch protection/ruleset di GitHub agar
+merge memerlukan PR dan workflow CI yang sukses. Setelah semua referensi/PR lama
+selesai dipindahkan, branch `master` dapat dihapus secara terpisah.
 
-Konfigurasi deployment frontend:
+Konfigurasi deployment melalui dashboard provider (bukan GitHub Actions):
 
-- Buat project Vercel dari repository ini dengan **Root Directory** `frontend/app`
-  dan **Production Branch** `prod`. `frontend/app/vercel.json` mengatur fallback SPA.
-- Buat site Netlify dari repository ini, aktifkan branch deploy untuk `rc`, dan
-  gunakan file `netlify.toml` di root repository untuk build/publish. `public/_redirects`
-  mengatur fallback SPA.
-- Pada **Project/Site Environment Variables** masing-masing provider, set
-  `VITE_BACKEND_URL` ke URL publik backend untuk environment yang sesuai. Nilai ini
-  dimasukkan ke bundle frontend saat build dan bukan rahasia.
-- Simpan `GOOGLE_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY`, `HF_API_TOKEN`, dan
-  `SUPABASE_SERVICE_KEY` sebagai environment variables rahasia di host **backend**,
-  bukan di frontend atau GitHub Actions. Jangan unggah `.env` ke repository.
+- **Vercel:** import repository ke Vercel, atur **Root Directory** ke `frontend/app`
+  dan **Production Branch** ke `prod`. Di **Project Settings → Environment Variables**,
+  atur `VITE_BACKEND_URL` untuk Production. `frontend/app/vercel.json` mengatur fallback SPA.
+- **Netlify:** import repository ke Netlify, pilih `rc` sebagai production branch/site
+  branch yang akan diuji. `netlify.toml` mengatur direktori build/publish; file
+  `frontend/app/public/_redirects` mengatur fallback SPA. Atur `VITE_BACKEND_URL` di
+  **Project configuration → Environment variables** untuk konteks/deploy `rc`.
+- `VITE_BACKEND_URL` adalah URL API backend publik, bukan secret. Nilainya disisipkan
+  ke JavaScript saat frontend dibuild. Jangan masukkan API keys backend ke variabel `VITE_*`.
+- `.env` di root hanya untuk lokal/Docker dan **tidak otomatis dibaca** oleh Vercel,
+  Netlify, atau GitHub Actions. Salin tiap nilai yang diperlukan ke pengaturan environment
+  yang sesuai; jangan unggah `.env` ke repository.
+- Secret aplikasi (`GOOGLE_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY`, `HF_API_TOKEN`,
+  dan opsional `SUPABASE_URL`/`SUPABASE_SERVICE_KEY`) harus berada di **environment
+  variables host backend**. Jangan masukkan `SUPABASE_SERVICE_KEY` atau API keys ke frontend.
+- Pada environment backend, atur `CORS_ALLOWED_ORIGINS` sebagai daftar origin frontend yang
+  dipisahkan koma, misalnya `https://app.example.com,https://rc.example.netlify.app`.
+  Backend mengizinkan localhost `5173`/`8080` jika variabel ini belum diset.
+- GitHub **Settings → Secrets and variables → Actions → Secrets** hanya diperlukan jika
+  workflow GitHub Actions perlu mengakses credential untuk deployment otomatis. Saat ini
+  deploy dilakukan lewat integrasi Git native Vercel/Netlify, jadi credential provider tidak
+  perlu disimpan di GitHub Actions secrets.
 
 Setup ini men-deploy frontend saja. Backend FastAPI belum memiliki host produksi/RC
-yang ditetapkan; Vercel dan Netlify akan membutuhkan konfigurasi backend terpisah
-sebelum frontend dapat memanggil API pada deployment.
+yang ditetapkan; pilih host backend dan dapatkan URL publik sebelum frontend deployment
+dapat berfungsi. Setelah itu set `VITE_BACKEND_URL` pada kedua provider serta
+`CORS_ALLOWED_ORIGINS` dan API keys di host backend.
+
+**Yang perlu diselesaikan sebelum rilis:** hubungkan repository ke Vercel dan Netlify,
+siapkan backend publik untuk RC dan produksi, isi environment variables di ketiga host,
+dan aktifkan branch rules. Saat ini workflow GitHub Actions tidak dapat mulai karena
+akun GitHub terkunci terkait billing; pulihkan akses Actions sebelum mewajibkan status
+check sebagai syarat merge. Pastikan PR lama tidak lagi menargetkan `master` sebelum
+branch tersebut dihapus.
 
 ### Setup Supabase (Fitur History) — Opsional
 
