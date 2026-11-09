@@ -1,12 +1,37 @@
 #!/bin/sh
-echo "🔍 [Pre-Commit] Menjalankan validasi kode..."
+echo "🔍 [Pre-Commit] Menjalankan pemeriksaan repository..."
 
-# Jalankan pengecekan format kode / syntax Python terintegrasi lewat Makefile
-make lint
-
-if [ $? -ne 0 ]; then
-    echo "❌ [Pre-Commit] Kode berantakan atau ada error! Commit dibatalkan."
+if ! command -v pre-commit >/dev/null 2>&1; then
+    echo "❌ [Pre-Commit] Perintah 'pre-commit' tidak ditemukan."
+    echo "   Pasang dependensi dengan: pip install pre-commit"
     exit 1
 fi
 
-echo "✅ [Pre-Commit] Semua aman! Melanjutkan commit..."
+python -c '
+import os
+import subprocess
+import sys
+
+staged_files = subprocess.check_output(
+    ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]
+).split(b"\0")
+staged_files = [os.fsdecode(path) for path in staged_files if path]
+command = [
+    sys.executable,
+    "-m",
+    "pre_commit",
+    "run",
+    "--hook-stage",
+    "pre-commit",
+]
+command.extend(["--files", *staged_files] if staged_files else ["--all-files"])
+raise SystemExit(subprocess.call(command))
+'
+status=$?
+
+if [ "$status" -ne 0 ]; then
+    echo "❌ [Pre-Commit] Pemeriksaan gagal! Perbaiki temuan sebelum commit."
+    exit 1
+fi
+
+echo "✅ [Pre-Commit] Semua pemeriksaan lolos! Melanjutkan commit..."
