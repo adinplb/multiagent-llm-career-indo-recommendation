@@ -280,6 +280,18 @@ pre-commit run --all-files
 
 Jika hook memperbaiki format file, tinjau perubahan lalu stage ulang sebelum commit.
 
+### Continuous Integration
+
+GitHub Actions menjalankan pemeriksaan saat ada push atau pull request ke `master`,
+serta dapat dijalankan manual dari tab **Actions**. Workflow `.github/workflows/ci.yml`
+menjalankan seluruh hook pre-commit dan build production frontend (`npm ci` lalu
+`npm run build`) tanpa memerlukan API key aplikasi.
+
+Saat ini workflow belum melakukan deployment: Docker Compose hanya mendefinisikan
+cara menjalankan aplikasi secara lokal. Untuk menambahkan deployment, tentukan target
+hosting dan strategi rilis terlebih dahulu; workflow kemudian dapat dikonfigurasi dengan
+kredensial deployment sebagai GitHub Actions secrets.
+
 ### Setup Supabase (Fitur History) — Opsional
 
 Fitur "History" (riwayat analisis karier) menyimpan hasil analisis ke [Supabase](https://supabase.com)
