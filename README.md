@@ -287,10 +287,43 @@ serta dapat dijalankan manual dari tab **Actions**. Workflow `.github/workflows/
 menjalankan seluruh hook pre-commit dan build production frontend (`npm ci` lalu
 `npm run build`) tanpa memerlukan API key aplikasi.
 
-Saat ini workflow belum melakukan deployment: Docker Compose hanya mendefinisikan
-cara menjalankan aplikasi secara lokal. Untuk menambahkan deployment, tentukan target
-hosting dan strategi rilis terlebih dahulu; workflow kemudian dapat dikonfigurasi dengan
-kredensial deployment sebagai GitHub Actions secrets.
+Deployment dilakukan melalui integrasi Git native Vercel dan Netlify; GitHub Actions
+menangani validasi CI, sementara masing-masing provider membangun dan menerbitkan branch
+yang dikonfigurasi.
+
+### Branch dan Deployment (Simulasi Enterprise)
+
+Alur rilis menggunakan tiga branch permanen:
+
+| Branch | Peran | Tujuan |
+|---|---|---|
+| `dev` | Integrasi perubahan fitur; perubahan masuk melalui pull request | CI |
+| `rc` | Kandidat rilis untuk pengujian sebelum produksi | Netlify |
+| `prod` | Rilis yang sudah disetujui | Vercel |
+
+Alur promosi: branch fitur → PR ke `dev` → PR `dev` ke `rc` → uji deployment
+Netlify → PR `rc` ke `prod` → deployment Vercel. Setelah rilis, sinkronkan
+perubahan `prod` kembali ke `dev`. Workflow CI berjalan pada push dan pull request
+ke ketiga branch. Terapkan aturan branch protection/ruleset di GitHub agar merge
+memerlukan PR dan workflow CI yang sukses.
+
+Konfigurasi deployment frontend:
+
+- Buat project Vercel dari repository ini dengan **Root Directory** `frontend/app`
+  dan **Production Branch** `prod`. `frontend/app/vercel.json` mengatur fallback SPA.
+- Buat site Netlify dari repository ini, aktifkan branch deploy untuk `rc`, dan
+  gunakan file `netlify.toml` di root repository untuk build/publish. `public/_redirects`
+  mengatur fallback SPA.
+- Pada **Project/Site Environment Variables** masing-masing provider, set
+  `VITE_BACKEND_URL` ke URL publik backend untuk environment yang sesuai. Nilai ini
+  dimasukkan ke bundle frontend saat build dan bukan rahasia.
+- Simpan `GOOGLE_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY`, `HF_API_TOKEN`, dan
+  `SUPABASE_SERVICE_KEY` sebagai environment variables rahasia di host **backend**,
+  bukan di frontend atau GitHub Actions. Jangan unggah `.env` ke repository.
+
+Setup ini men-deploy frontend saja. Backend FastAPI belum memiliki host produksi/RC
+yang ditetapkan; Vercel dan Netlify akan membutuhkan konfigurasi backend terpisah
+sebelum frontend dapat memanggil API pada deployment.
 
 ### Setup Supabase (Fitur History) — Opsional
 
