@@ -1,0 +1,12 @@
+#!/bin/sh
+echo "🔍 [Pre-Commit] Menjalankan validasi kode..."
+
+# Jalankan pengecekan format kode / syntax Python terintegrasi lewat Makefile
+make lint
+
+if [ $? -ne 0 ]; then
+    echo "❌ [Pre-Commit] Kode berantakan atau ada error! Commit dibatalkan."
+    exit 1
+fi
+
+echo "✅ [Pre-Commit] Semua aman! Melanjutkan commit..."

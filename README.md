@@ -752,6 +752,8 @@ Untuk mengubah perilaku agent, edit `SYSTEM_PROMPT` di masing-masing file agent:
 | Strategist | [backend/agents/strategist.py](backend/agents/strategist.py) | Platform belajar, format roadmap, instruksi personalisasi |
 
 ### Menambah Platform Belajar Baru ke Roadmap
+Pada bagian ini, sebabaiknya dihapus saja fiturnya.
+
 
 Edit `backend/agents/strategist.py`, bagian `SYSTEM_PROMPT`, tambahkan platform baru di sekitar baris referensi platform Indonesia.
 
