@@ -1,16 +1,16 @@
-  GNU nano 8.5                             Makefile                             Modified
 .PHONY: git-hooks lint
 
-# Perintah untuk menginstal / mendaftarkan git-hooks otomatis
+# Instal hook pre-commit ke lokasi hooks yang dikelola Git.
 git-hooks:
+	@command -v pre-commit >/dev/null 2>&1 || { echo "❌ Pasang pre-commit terlebih dahulu: pip install pre-commit"; exit 1; }
 	@echo "⚙️  Mengonfigurasi Git Hooks..."
-	@cp githooks/pre-commit .git/hooks/pre-commit
-	@chmod +x .git/hooks/pre-commit
+	@hook_path="$$(git rev-parse --git-path hooks/pre-commit)"; \
+	mkdir -p "$$(dirname "$$hook_path")"; \
+	cp githooks/pre-commit "$$hook_path"; \
+	chmod +x "$$hook_path"
 	@echo "✅ Git Hooks berhasil dipasang di .git/hooks/"
 
-# Perintah pengecekan (linter) yang dipanggil oleh script pre-commit tadi
+# Pemeriksaan sintaks Python yang dipanggil oleh konfigurasi pre-commit.
 lint:
 	@echo "  Memeriksa syntax Python..."
-	@# Perintah di bawah ini akan mengecek apakah ada error syntax di file Python Anda
 	python -m compileall -q .
-

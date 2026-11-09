@@ -256,6 +256,30 @@ multiagent-llm-career-indo-recommendation/
 
 > Sistem ini menggunakan data **real-time** dari Tavily (LinkedIn, JobStreet, Glints) — tidak ada dataset lokal. Pastikan komputer terhubung ke internet dan `TAVILY_API_KEY` diset di `.env`.
 
+### Git Hooks dan Pemeriksaan Pre-commit
+
+Repository ini menggunakan [pre-commit](https://pre-commit.com/) dan hook dari
+[`pre-commit-hooks`](https://github.com/pre-commit/pre-commit-hooks) untuk memeriksa file yang di-stage sebelum commit.
+Setup ini memerlukan Python, GNU Make, dan Git.
+
+```bash
+pip install pre-commit
+make git-hooks
+```
+
+`.pre-commit-config.yaml` mengaktifkan pemeriksaan sintaks Python, JSON, YAML, TOML,
+konflik merge, debug statement Python, spasi akhir, newline di akhir file, serta file besar
+yang ditambahkan. Hook lokal `python-compileall` mempertahankan pemeriksaan sintaks Python
+repository melalui `make lint`.
+
+Untuk menjalankan seluruh pemeriksaan secara manual:
+
+```bash
+pre-commit run --all-files
+```
+
+Jika hook memperbaiki format file, tinjau perubahan lalu stage ulang sebelum commit.
+
 ### Setup Supabase (Fitur History) — Opsional
 
 Fitur "History" (riwayat analisis karier) menyimpan hasil analisis ke [Supabase](https://supabase.com)
